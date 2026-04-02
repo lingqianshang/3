@@ -11,8 +11,8 @@ public class Result<T> {
 
     public static <T> Result<T> success(T data) {
         Result<T> result = new Result<>();
-        result.setCode(200);
-        result.setMsg("操作成功");
+        result.setCode(ResultCode.SUCCESS.getCode());
+        result.setMsg(ResultCode.SUCCESS.getMsg());
         result.setData(data);
         return result;
     }
@@ -21,6 +21,15 @@ public class Result<T> {
         Result<T> result = new Result<>();
         result.setCode(code);
         result.setMsg(msg);
+        result.setData(null);
+        return result;
+    }
+
+    // 新增：使用 ResultCode 枚举的错误返回
+    public static <T> Result<T> error(ResultCode resultCode) {
+        Result<T> result = new Result<>();
+        result.setCode(resultCode.getCode());
+        result.setMsg(resultCode.getMsg());
         result.setData(null);
         return result;
     }
