@@ -13,21 +13,29 @@ public class UserController {
     @Autowired
     private UserService userService;
 
-    // 1. 用户注册 - POST /api/users
+    // 注册 - POST /api/users
     @PostMapping
     public Result<String> register(@RequestBody UserDTO userDTO) {
         return userService.register(userDTO);
     }
 
-    // 2. 用户登录 - POST /api/users/login
+    // 登录 - POST /api/users/login
     @PostMapping("/login")
     public Result<String> login(@RequestBody UserDTO userDTO) {
         return userService.login(userDTO);
     }
 
-    // 3. 获取用户信息 - GET /api/users/{id}
+    // 根据id查询用户 - GET /api/users/{id}
     @GetMapping("/{id}")
-    public Result<String> getUser(@PathVariable("id") Long id) {
+    public Result<String> getUserById(@PathVariable Long id) {
         return userService.getUserById(id);
+    }
+
+    // 分页查询用户列表 - GET /api/users/page?pageNum=1&pageSize=5
+    @GetMapping("/page")
+    public Result<Object> getUserPage(
+            @RequestParam(defaultValue = "1") Integer pageNum,
+            @RequestParam(defaultValue = "5") Integer pageSize) {
+        return userService.getUserPage(pageNum, pageSize);
     }
 }
