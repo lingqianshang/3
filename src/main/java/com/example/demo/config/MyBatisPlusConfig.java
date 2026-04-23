@@ -12,7 +12,7 @@ public class MyBatisPlusConfig {
     @Bean
     public MybatisPlusInterceptor mybatisPlusInterceptor() {
         MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
-        // 注意：是 POSTGRE_SQL，不是 POSTGRESQL
+        // 注意：PostgreSQL 的 DbType 是 POSTGRE_SQL（有下划线）
         interceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.POSTGRE_SQL));
         return interceptor;
     }

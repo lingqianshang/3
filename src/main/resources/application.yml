@@ -1,9 +1,20 @@
 spring:
   datasource:
+    driver-class-name: org.postgresql.Driver
     url: jdbc:postgresql://localhost:5432/postgres
     username: postgres
-    password: '@Wu15759685659'
-    driver-class-name: org.postgresql.Driver
+    password: '@Wu15759685659'   # 用单引号包裹，因为包含 @ 符号
+
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
 
 mybatis-plus:
   configuration:
