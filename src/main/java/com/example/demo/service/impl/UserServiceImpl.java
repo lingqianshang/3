@@ -11,6 +11,7 @@ import com.example.demo.entity.User;
 import com.example.demo.entity.UserInfo;
 import com.example.demo.mapper.UserInfoMapper;
 import com.example.demo.mapper.UserMapper;
+import com.example.demo.security.JwtUtil;
 import com.example.demo.service.UserService;
 import com.example.demo.vo.UserDetailVO;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,18 +26,21 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private UserMapper userMapper;
+
     @Autowired
     private UserInfoMapper userInfoMapper;
+
     @Autowired
     private StringRedisTemplate redisTemplate;
 
+    @Autowired
+    private JwtUtil jwtUtil;
+
     private static final String CACHE_KEY_PREFIX = "user:detail:";
 
-    // ==================== 任务4/5/6 方法实现 ====================
-
+    // ==================== 注册 ====================
     @Override
     public Result<String> register(UserDTO userDTO) {
-        // 检查用户名是否存在
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(User::getUsername, userDTO.getUsername());
         if (userMapper.selectOne(wrapper) != null) {
@@ -50,22 +54,29 @@ public class UserServiceImpl implements UserService {
         return Result.success("注册成功");
     }
 
+    // ==================== 登录（返回 JWT）====================
     @Override
     public Result<String> login(UserDTO userDTO) {
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(User::getUsername, userDTO.getUsername());
         User user = userMapper.selectOne(wrapper);
+
         if (user == null) {
             return Result.error(ResultCode.USER_NOT_EXIST.getCode(),
                     ResultCode.USER_NOT_EXIST.getMsg());
         }
+
         if (!user.getPassword().equals(userDTO.getPassword())) {
             return Result.error(ResultCode.PASSWORD_ERROR.getCode(),
                     ResultCode.PASSWORD_ERROR.getMsg());
         }
-        return Result.success("登录成功");
+
+        // 生成 JWT Token
+        String jwt = jwtUtil.generateToken(userDTO.getUsername());
+        return Result.success(jwt);
     }
 
+    // ==================== 根据ID查询用户 ====================
     @Override
     public Result<String> getUserById(Long id) {
         User user = userMapper.selectById(id);
@@ -76,6 +87,7 @@ public class UserServiceImpl implements UserService {
         return Result.success("查询成功，用户名：" + user.getUsername());
     }
 
+    // ==================== 分页查询 ====================
     @Override
     public Result<Object> getUserPage(Integer pageNum, Integer pageSize) {
         Page<User> page = new Page<>(pageNum, pageSize);
@@ -83,12 +95,10 @@ public class UserServiceImpl implements UserService {
         return Result.success(result);
     }
 
-    // ==================== 任务7 新增方法 ====================
-
+    // ==================== 用户详情（多表联查 + Redis缓存）====================
     @Override
     public Result<UserDetailVO> getUserDetail(Long userId) {
         String key = CACHE_KEY_PREFIX + userId;
-        // 1. 查缓存
         String json = redisTemplate.opsForValue().get(key);
         if (StrUtil.isNotBlank(json)) {
             try {
@@ -98,27 +108,24 @@ public class UserServiceImpl implements UserService {
                 redisTemplate.delete(key);
             }
         }
-        // 2. 查数据库（多表联查）
         UserDetailVO detail = userInfoMapper.getUserDetail(userId);
         if (detail == null) {
             return Result.error(ResultCode.USER_NOT_EXIST.getCode(),
                     ResultCode.USER_NOT_EXIST.getMsg());
         }
-        // 3. 写缓存，过期时间10分钟
         redisTemplate.opsForValue().set(key, JSONUtil.toJsonStr(detail), 10, TimeUnit.MINUTES);
         return Result.success(detail);
     }
 
+    // ==================== 更新用户扩展信息 ====================
     @Override
     @Transactional
     public Result<String> updateUserInfo(Long userId, UserInfo userInfo) {
-        // 检查用户是否存在
         User user = userMapper.selectById(userId);
         if (user == null) {
             return Result.error(ResultCode.USER_NOT_EXIST.getCode(),
                     ResultCode.USER_NOT_EXIST.getMsg());
         }
-        // 查询是否已有扩展信息
         LambdaQueryWrapper<UserInfo> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(UserInfo::getUserId, userId);
         UserInfo existing = userInfoMapper.selectOne(wrapper);
@@ -129,25 +136,22 @@ public class UserServiceImpl implements UserService {
         } else {
             userInfoMapper.insert(userInfo);
         }
-        // 删除缓存
         redisTemplate.delete(CACHE_KEY_PREFIX + userId);
         return Result.success("更新用户信息成功");
     }
 
+    // ==================== 删除用户 ====================
     @Override
     @Transactional
     public Result<String> deleteUser(Long userId) {
-        // 删除主表
         int rows = userMapper.deleteById(userId);
         if (rows == 0) {
             return Result.error(ResultCode.USER_NOT_EXIST.getCode(),
                     ResultCode.USER_NOT_EXIST.getMsg());
         }
-        // 删除扩展信息
         LambdaQueryWrapper<UserInfo> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(UserInfo::getUserId, userId);
         userInfoMapper.delete(wrapper);
-        // 删除缓存
         redisTemplate.delete(CACHE_KEY_PREFIX + userId);
         return Result.success("删除用户成功");
     }
